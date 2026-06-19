@@ -1,20 +1,22 @@
 """
-Agent 1: The Mapper (ADK)
+Agent 1: The Mapper (ADK) — the orchestrator.
 
-Responsibilities:
-  1. Receive a GitHub repo URL from the dashboard via POST /a2a
-  2. Map the repository using the GitHub REST API
-  3. Analyse the map using an ADK LlmAgent (Gemini Flash)
-  4. Stream live progress to the dashboard via GET /events (SSE)
-  5. Return a structured repo-map JSON
-  6. (Phase 4) Forward the map to Agent 2, then combined results to Agent 3
+Full pipeline:
+  1. Receive GitHub URL from dashboard via POST /a2a
+  2. Map the repository (GitHub REST API + ADK/Gemini analysis)
+  3. Stream progress to dashboard via GET /events (SSE)
+  4. Call Agent 2 (Code Reader) via A2A → get code analysis
+  5. Call Agent 3 (Explainer) via A2A → get onboarding kit
+  6. Stream results to dashboard
 """
 
 import asyncio
 import json
+import os
 import uuid
 from datetime import datetime
 
+import httpx
 from fastapi import BackgroundTasks, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -36,17 +38,17 @@ app.add_middleware(
 AGENT_CARD = {
     "name": "Codebase Mapper",
     "description": (
-        "Receives a GitHub repo URL, maps its structure using the GitHub REST API, "
-        "identifies the tech stack and entry points using Gemini via ADK, then "
-        "delegates to Agent 2 (Code Reader) and Agent 3 (Explainer) via A2A."
+        "Orchestrator agent. Maps a GitHub repo, then delegates to Agent 2 "
+        "(Code Reader) and Agent 3 (Explainer) via A2A to produce a complete "
+        "developer onboarding kit."
     ),
-    "version": "0.2.0",
+    "version": "0.3.0",
     "framework": "Google ADK",
     "skills": [
         {
             "id": "map_repository",
             "name": "Map Repository",
-            "description": "Produces a structured JSON map of a public GitHub repository.",
+            "description": "Full pipeline: map → read → explain.",
             "input_modes": ["application/json"],
             "output_modes": ["application/json"],
         }
@@ -56,9 +58,9 @@ AGENT_CARD = {
     "defaultOutputModes": ["application/json"],
 }
 
-# ── SSE subscriber list ───────────────────────────────────────────────────────
-# Each connected dashboard gets a Queue. When we broadcast an event, every
-# queue gets the message and each SSE response reads from its own queue.
+AGENT2_URL = os.getenv("AGENT2_URL", "http://localhost:8002")
+AGENT3_URL = os.getenv("AGENT3_URL", "http://localhost:8003")
+
 _subscribers: list[asyncio.Queue] = []
 
 
@@ -67,7 +69,9 @@ def _now() -> str:
 
 
 async def _broadcast(event: dict) -> None:
-    payload = f"data: {json.dumps(event)}\n\n"
+    # Include `event:` line so browser EventSource named listeners fire correctly
+    event_type = event.get("type", "message")
+    payload = f"event: {event_type}\ndata: {json.dumps(event)}\n\n"
     for q in list(_subscribers):
         await q.put(payload)
 
@@ -75,14 +79,10 @@ async def _broadcast(event: dict) -> None:
 # ── Pipeline ──────────────────────────────────────────────────────────────────
 
 async def run_pipeline(repo_url: str) -> None:
-    """
-    Full mapping pipeline. Runs in the background so /a2a can return immediately.
-    Broadcasts SSE events throughout so the dashboard updates in real time.
-    """
     await _broadcast({"type": "status", "agent": "mapper", "state": "working", "time": _now()})
-    await _broadcast({"type": "log", "agent": "mapper", "message": f"Starting pipeline for: {repo_url}", "time": _now()})
+    await _broadcast({"type": "log", "agent": "mapper", "message": f"Pipeline started for: {repo_url}", "time": _now()})
 
-    # ── 1. Parse GitHub URL ───────────────────────────────────────────────────
+    # ── 1. Parse URL ─────────────────────────────────────────────────────────
     try:
         owner, repo = gh.parse_github_url(repo_url)
     except ValueError as e:
@@ -90,20 +90,18 @@ async def run_pipeline(repo_url: str) -> None:
         await _broadcast({"type": "status", "agent": "mapper", "state": "idle", "time": _now()})
         return
 
-    await _broadcast({"type": "log", "agent": "mapper", "message": f"Parsed repo: {owner}/{repo}", "time": _now()})
-
     # ── 2. Repo metadata ──────────────────────────────────────────────────────
-    await _broadcast({"type": "log", "agent": "mapper", "message": "Fetching repo metadata from GitHub…", "time": _now()})
+    await _broadcast({"type": "log", "agent": "mapper", "message": "Fetching repo metadata…", "time": _now()})
     try:
         metadata = await gh.get_repo_metadata(owner, repo)
     except Exception as e:
-        await _broadcast({"type": "log", "agent": "mapper", "message": f"ERROR fetching metadata: {e}", "time": _now()})
+        await _broadcast({"type": "log", "agent": "mapper", "message": f"ERROR: {e}", "time": _now()})
         await _broadcast({"type": "status", "agent": "mapper", "state": "idle", "time": _now()})
         return
 
     await _broadcast({
         "type": "log", "agent": "mapper",
-        "message": f"Repo: {metadata['name']} · {metadata['language']} · ⭐ {metadata['stars']:,}",
+        "message": f"{metadata['name']} · {metadata['language']} · ⭐ {metadata['stars']:,}",
         "time": _now(),
     })
 
@@ -112,56 +110,39 @@ async def run_pipeline(repo_url: str) -> None:
     try:
         tree = await gh.get_file_tree(owner, repo, metadata["default_branch"])
     except Exception as e:
-        await _broadcast({"type": "log", "agent": "mapper", "message": f"ERROR fetching tree: {e}", "time": _now()})
+        await _broadcast({"type": "log", "agent": "mapper", "message": f"Tree fetch failed: {e}", "time": _now()})
         tree = []
 
-    await _broadcast({"type": "log", "agent": "mapper", "message": f"Found {len(tree)} entries in tree", "time": _now()})
+    await _broadcast({"type": "log", "agent": "mapper", "message": f"Found {len(tree)} entries", "time": _now()})
 
-    # Stream top-level folders to the dashboard one by one
     folders = gh.extract_folders(tree, max_depth=2)
-    for item in folders[:30]:  # cap at 30 for UI clarity
+    for item in folders[:30]:
         depth = item["path"].count("/")
-        indent = "  " * depth
         label = item["path"].split("/")[-1]
         await _broadcast({
             "type": "tree_entry",
-            "text": f"{indent}📁 {label}/",
+            "text": "  " * depth + f"📁 {label}/",
             "entry_type": "folder",
             "time": _now(),
         })
-        await asyncio.sleep(0.04)  # small delay so the tree appears to build live
+        await asyncio.sleep(0.04)
 
     # ── 4. Package files ──────────────────────────────────────────────────────
     pkg_file_paths = gh.find_package_files(tree)
-    await _broadcast({
-        "type": "log", "agent": "mapper",
-        "message": f"Found package files: {pkg_file_paths or ['none']}",
-        "time": _now(),
-    })
-
     package_contents: dict[str, str] = {}
     for path in pkg_file_paths:
         content = await gh.get_file_content(owner, repo, path)
         if content:
             package_contents[path] = content
-            await _broadcast({
-                "type": "tree_entry",
-                "text": f"  📄 {path}",
-                "entry_type": "file",
-                "time": _now(),
-            })
+            await _broadcast({"type": "tree_entry", "text": f"  📄 {path}", "entry_type": "file", "time": _now()})
 
     # ── 5. README ─────────────────────────────────────────────────────────────
     await _broadcast({"type": "log", "agent": "mapper", "message": "Fetching README…", "time": _now()})
     readme = await gh.get_readme(owner, repo)
 
-    # ── 6. Build text summary for Gemini ─────────────────────────────────────
-    top_paths = [item["path"] for item in tree if item["type"] == "tree"][:60]
-    tree_text = "\n".join(top_paths)
-
-    pkg_text = "\n\n".join(
-        f"=== {name} ===\n{content}" for name, content in package_contents.items()
-    )
+    # ── 6. Build Gemini prompt ────────────────────────────────────────────────
+    top_paths = [i["path"] for i in tree if i["type"] == "tree"][:60]
+    pkg_text = "\n\n".join(f"=== {n} ===\n{c}" for n, c in package_contents.items())
 
     repo_summary = f"""
 Repository: {owner}/{repo}
@@ -169,10 +150,10 @@ Primary language: {metadata['language']}
 Description: {metadata['description']}
 Topics: {', '.join(metadata['topics']) or 'none'}
 
---- Folder structure (top 60 paths) ---
-{tree_text}
+--- Folder structure ---
+{chr(10).join(top_paths)}
 
---- Package / build files ---
+--- Package files ---
 {pkg_text or 'None found'}
 
 --- README (first 3000 chars) ---
@@ -180,59 +161,122 @@ Topics: {', '.join(metadata['topics']) or 'none'}
 """.strip()
 
     # ── 7. ADK / Gemini analysis ──────────────────────────────────────────────
-    await _broadcast({"type": "log", "agent": "mapper", "message": "Sending to Gemini for analysis (ADK)…", "time": _now()})
-
+    await _broadcast({"type": "log", "agent": "mapper", "message": "Analysing with Gemini (ADK)…", "time": _now()})
     session_id = str(uuid.uuid4())
     try:
         analysis = await analyze_repo(repo_summary, session_id)
     except Exception as e:
-        await _broadcast({"type": "log", "agent": "mapper", "message": f"ERROR in ADK agent: {e}", "time": _now()})
+        await _broadcast({"type": "log", "agent": "mapper", "message": f"Gemini error: {e}", "time": _now()})
         analysis = {"tech_stack": [], "entry_points": [], "main_modules": [], "architecture_summary": ""}
 
-    await _broadcast({"type": "log", "agent": "mapper", "message": "Gemini analysis complete", "time": _now()})
-
-    # Stream tech badges to the dashboard
     for tech in analysis.get("tech_stack", []):
         await _broadcast({"type": "tech_badge", "tech": tech, "time": _now()})
         await asyncio.sleep(0.08)
 
-    # ── 8. Build final repo map JSON ──────────────────────────────────────────
+    # ── 8. Build repo map ─────────────────────────────────────────────────────
     repo_map = {
         "repo_url": repo_url,
         "owner": owner,
         "repo": repo,
         "metadata": metadata,
         "file_count": len(tree),
-        "folder_structure": [item["path"] for item in folders],
+        "folder_structure": [i["path"] for i in folders],
         "package_files": {k: v[:500] for k, v in package_contents.items()},
         "readme_excerpt": readme[:1000],
         "analysis": analysis,
     }
 
-    await _broadcast({
-        "type": "log", "agent": "mapper",
-        "message": f"Repo map built. Tech stack: {', '.join(analysis.get('tech_stack', []))}",
-        "time": _now(),
-    })
-
-    # ── 9. Phase 4: forward to Agent 2 then Agent 3 ──────────────────────────
-    # Placeholder — A2A calls to Agent 2 and Agent 3 are wired in Phase 4.
-    await _broadcast({"type": "log", "agent": "mapper", "message": "(Phase 4) Will forward to Agent 2 via A2A next", "time": _now()})
-
-    # ── 10. Done ──────────────────────────────────────────────────────────────
     await _broadcast({"type": "status", "agent": "mapper", "state": "done", "time": _now()})
     await _broadcast({
-        "type": "pipeline_complete",
-        "repo_map": repo_map,
+        "type": "log", "agent": "mapper",
+        "message": f"Repo map complete. Tech: {', '.join(analysis.get('tech_stack', []))}",
         "time": _now(),
     })
 
+    # ── 9. A2A call to Agent 2 ────────────────────────────────────────────────
+    await _broadcast({
+        "type": "a2a_send",
+        "message": f"Agent 1 → Agent 2 (Code Reader): read_code for {owner}/{repo}",
+        "time": _now(),
+    })
+    await _broadcast({"type": "status", "agent": "reader", "state": "working", "time": _now()})
+    await _broadcast({"type": "log", "agent": "reader", "message": "Received repo map from Agent 1. Starting LangGraph loop…", "time": _now()})
 
-# ── FastAPI routes ────────────────────────────────────────────────────────────
+    code_analysis: dict = {}
+    files_read: int = 0
+    iters: int = 0
+    try:
+        async with httpx.AsyncClient(timeout=300) as client:
+            r = await client.post(f"{AGENT2_URL}/a2a", json={"repo_map": repo_map})
+            r.raise_for_status()
+            agent2_result = r.json()
+            code_analysis = agent2_result.get("code_analysis", {})
+            files_read = agent2_result.get("files_read_count", 0)
+            iters = agent2_result.get("iterations_used", 0)
+    except Exception as e:
+        await _broadcast({"type": "log", "agent": "reader", "message": f"Agent 2 error: {e}", "time": _now()})
+
+    await _broadcast({
+        "type": "a2a_recv",
+        "message": f"Agent 2 → Agent 1: code analysis done ({files_read} files, {iters} loops)",
+        "time": _now(),
+    })
+    await _broadcast({"type": "status", "agent": "reader", "state": "done", "time": _now()})
+    await _broadcast({"type": "iteration", "current": iters, "max": 15, "time": _now()})
+
+    # Send file graph data to dashboard
+    if code_analysis.get("file_purposes"):
+        await _broadcast({
+            "type": "graph_node",
+            "files": list(code_analysis["file_purposes"].keys()),
+            "time": _now(),
+        })
+
+    # ── 10. A2A call to Agent 3 ───────────────────────────────────────────────
+    await _broadcast({
+        "type": "a2a_send",
+        "message": f"Agent 1 → Agent 3 (Explainer): explain_codebase for {owner}/{repo}",
+        "time": _now(),
+    })
+    await _broadcast({"type": "status", "agent": "explainer", "state": "working", "time": _now()})
+    await _broadcast({"type": "log", "agent": "explainer", "message": "Received data from Agent 1. Launching CrewAI crew…", "time": _now()})
+
+    onboarding_kit: dict = {}
+    try:
+        async with httpx.AsyncClient(timeout=300) as client:
+            r = await client.post(
+                f"{AGENT3_URL}/a2a",
+                json={"repo_map": repo_map, "code_analysis": code_analysis},
+            )
+            r.raise_for_status()
+            agent3_result = r.json()
+            onboarding_kit = agent3_result.get("onboarding_kit", {})
+    except Exception as e:
+        await _broadcast({"type": "log", "agent": "explainer", "message": f"Agent 3 error: {e}", "time": _now()})
+
+    await _broadcast({
+        "type": "a2a_recv",
+        "message": "Agent 3 → Agent 1: onboarding kit complete",
+        "time": _now(),
+    })
+    await _broadcast({"type": "status", "agent": "explainer", "state": "done", "time": _now()})
+
+    # Push results into the dashboard's Agent 3 column
+    if onboarding_kit.get("new_developer_guide"):
+        await _broadcast({"type": "result_guide", "text": onboarding_kit["new_developer_guide"], "time": _now()})
+    if onboarding_kit.get("data_flow"):
+        await _broadcast({"type": "result_flow", "text": onboarding_kit["data_flow"], "time": _now()})
+    if onboarding_kit.get("top_5_files"):
+        await _broadcast({"type": "result_top5", "items": onboarding_kit["top_5_files"], "time": _now()})
+
+    await _broadcast({"type": "pipeline_complete", "time": _now()})
+
+
+# ── Routes ────────────────────────────────────────────────────────────────────
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "agent": "mapper", "phase": "2"}
+    return {"status": "ok", "agent": "mapper", "phase": "4"}
 
 
 @app.get("/.well-known/agent.json")
@@ -242,17 +286,12 @@ async def agent_card():
 
 @app.get("/events")
 async def events(request: Request):
-    """
-    SSE endpoint. The dashboard opens a persistent connection here.
-    Every event broadcast by run_pipeline() arrives here and is pushed
-    to the browser in real time.
-    """
     queue: asyncio.Queue = asyncio.Queue()
     _subscribers.append(queue)
 
     async def stream():
         try:
-            yield f"data: {json.dumps({'type': 'connected', 'time': _now()})}\n\n"
+            yield f"event: connected\ndata: {json.dumps({'type': 'connected', 'time': _now()})}\n\n"
             while True:
                 if await request.is_disconnected():
                     break
@@ -274,29 +313,15 @@ async def events(request: Request):
 
 @app.post("/a2a")
 async def a2a_endpoint(request: Request, background_tasks: BackgroundTasks):
-    """
-    Entry point for the dashboard.
-    Starts the pipeline in the background and returns immediately (202).
-    All progress is streamed via /events.
-    """
     body = await request.json()
     repo_url = body.get("repo_url", "").strip()
-
     if not repo_url:
         return JSONResponse(status_code=400, content={"error": "repo_url is required"})
 
-    task_id = str(uuid.uuid4())
-
-    # Start pipeline without blocking this response
     background_tasks.add_task(run_pipeline, repo_url)
-
     return JSONResponse(
         status_code=202,
-        content={
-            "status": "accepted",
-            "task_id": task_id,
-            "message": "Pipeline started. Watch /events for live updates.",
-        },
+        content={"status": "accepted", "message": "Pipeline started — watch /events"},
     )
 
 

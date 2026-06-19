@@ -81,7 +81,11 @@ async def a2a_endpoint(request: Request):
     }
 
     # ainvoke runs the full graph asynchronously and returns the final state
-    final_state = await reader_graph.ainvoke(initial_state)
+    # recursion_limit must be > max_iterations × nodes_per_loop to avoid GraphRecursionError
+    final_state = await reader_graph.ainvoke(
+        initial_state,
+        config={"recursion_limit": 100},
+    )
 
     return {
         "status": "complete",

@@ -1,669 +1,676 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Codebase Explainer</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Codebase Explainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
-    :root {
-      --bg:         #0d1117;
-      --surface:    #161b22;
-      --border:     #30363d;
-      --text:       #e6edf3;
-      --muted:      #7d8590;
-      --blue:       #4285F4;
-      --green:      #34A853;
-      --orange:     #EA4335;
-      --blue-dim:   rgba(66,133,244,0.12);
-      --green-dim:  rgba(52,168,83,0.12);
-      --orange-dim: rgba(234,67,53,0.12);
-    }
+:root{
+  --bg:     #060A14;
+  --card:   #0B1020;
+  --card2:  #0E1428;
+  --border: rgba(255,255,255,0.06);
+  --brite:  rgba(255,255,255,0.10);
+  --text:   #DDE4F0;
+  --sub:    #7B8799;
+  --muted:  #3E4A5C;
+  --a1:     #4F7FFF;
+  --a1g:    rgba(79,127,255,.18);
+  --a2:     #00C9A7;
+  --a2g:    rgba(0,201,167,.18);
+  --a3:     #A855F7;
+  --a3g:    rgba(168,85,247,.18);
+  --ok:     #22D3A8;
+  --err:    #F87171;
+}
 
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      font-size: 14px;
-      line-height: 1.5;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);
+  font-family:'Inter',sans-serif;font-size:14px;-webkit-font-smoothing:antialiased}
 
-    /* ── top bar ─────────────────────────────────────────────── */
-    .topbar {
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      padding: 16px 24px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      flex-wrap: wrap;
-    }
-    .topbar h1 { font-size: 18px; font-weight: 600; white-space: nowrap; }
-    .topbar h1 span { color: var(--blue); }
+/* ── background dot grid ── */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:radial-gradient(circle,rgba(255,255,255,.04) 1px,transparent 1px);
+  background-size:28px 28px;
+}
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(ellipse 70% 60% at 50% 0%,rgba(79,127,255,.07) 0%,transparent 100%);
+}
 
-    .input-group { display: flex; gap: 8px; flex: 1; min-width: 320px; }
-    .input-group input {
-      flex: 1;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text);
-      padding: 8px 12px;
-      font-size: 14px;
-      outline: none;
-    }
-    .input-group input:focus { border-color: var(--blue); }
-    .input-group button {
-      background: var(--blue);
-      border: none;
-      border-radius: 6px;
-      color: #fff;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: 600;
-      padding: 8px 20px;
-      white-space: nowrap;
-    }
-    .input-group button:hover { opacity: 0.88; }
-    .input-group button:disabled { opacity: 0.45; cursor: not-allowed; }
+#app{position:relative;z-index:1;display:grid;grid-template-rows:58px 1fr 64px;height:100vh}
 
-    /* ── three-column area ───────────────────────────────────── */
-    .agents {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1px;
-      background: var(--border);
-      flex: 1;
-      min-height: 0;
-    }
+/* ══════════════════════════ HEADER ══════════════════════════ */
+header{
+  display:flex;align-items:center;gap:18px;padding:0 20px;
+  background:rgba(6,10,20,.92);backdrop-filter:blur(24px);
+  border-bottom:1px solid var(--border);position:relative;
+}
+header::after{
+  content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(79,127,255,.3) 30%,rgba(168,85,247,.3) 70%,transparent);
+}
 
-    .agent-col {
-      background: var(--bg);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
+.logo{display:flex;align-items:center;gap:10px;flex-shrink:0;text-decoration:none}
+.logo-mark{
+  width:30px;height:30px;border-radius:8px;flex-shrink:0;
+  background:linear-gradient(135deg,var(--a1),var(--a3));
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:900;color:#fff;letter-spacing:-1px;
+  box-shadow:0 0 16px rgba(79,127,255,.4);
+}
+.logo-name{
+  font-size:14px;font-weight:700;letter-spacing:-.3px;
+  background:linear-gradient(90deg,#fff 0%,rgba(255,255,255,.7) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.logo-fw{
+  font-size:9px;font-weight:500;letter-spacing:1.2px;text-transform:uppercase;
+  color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:1px;
+}
 
-    .col-header {
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      flex-shrink: 0;
-    }
-    .col-header .title { font-weight: 600; font-size: 13px; }
-    .col-header .subtitle { font-size: 11px; color: var(--muted); }
+.hd{width:1px;height:24px;background:var(--border);flex-shrink:0}
 
-    .status-badge {
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.5px;
-      padding: 2px 8px;
-      border-radius: 20px;
-      text-transform: uppercase;
-    }
-    .status-badge.idle    { background: rgba(125,133,144,0.2); color: var(--muted); }
-    .status-badge.working { background: rgba(66,133,244,0.2);  color: var(--blue); }
-    .status-badge.done    { background: rgba(52,168,83,0.2);   color: var(--green); }
+.url-form{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+.url-input{
+  flex:1;min-width:0;height:36px;
+  background:rgba(255,255,255,.04);
+  border:1px solid var(--border);
+  border-radius:20px;padding:0 16px;
+  color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;
+  outline:none;transition:border-color .2s,box-shadow .2s;
+}
+.url-input::placeholder{color:var(--muted)}
+.url-input:focus{border-color:rgba(79,127,255,.5);box-shadow:0 0 0 3px rgba(79,127,255,.1)}
 
-    /* accent colours per column */
-    .col-blue  .col-header { border-left: 3px solid var(--blue); }
-    .col-green .col-header { border-left: 3px solid var(--green); }
-    .col-orange .col-header { border-left: 3px solid var(--orange); }
+.run-btn{
+  height:36px;padding:0 20px;flex-shrink:0;
+  background:linear-gradient(135deg,#4F7FFF,#7C50FF);
+  border:none;border-radius:20px;
+  color:#fff;font-size:12px;font-weight:700;letter-spacing:.3px;
+  cursor:pointer;display:flex;align-items:center;gap:6px;
+  transition:opacity .2s,transform .1s;
+  box-shadow:0 0 20px rgba(79,127,255,.25);
+}
+.run-btn:hover{opacity:.88;transform:translateY(-1px)}
+.run-btn:active{transform:translateY(0) scale(.97)}
+.run-btn:disabled{opacity:.35;cursor:not-allowed;transform:none}
+.run-btn svg{width:12px;height:12px}
 
-    .col-body {
-      flex: 1;
-      overflow-y: auto;
-      padding: 12px 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
+/* ══════════════════════════ MAIN ══════════════════════════ */
+main{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:12px;overflow:hidden;min-height:0}
 
-    /* ── log feeds ───────────────────────────────────────────── */
-    .log-feed {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 10px 12px;
-      font-family: "SF Mono", "Fira Code", monospace;
-      font-size: 12px;
-      max-height: 180px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-    }
-    .log-feed .log-line { color: var(--muted); }
-    .log-feed .log-line.active { color: var(--text); }
+/* ══════════════════════════ CARD ══════════════════════════ */
+.card{
+  position:relative;display:flex;flex-direction:column;
+  border-radius:16px;overflow:hidden;
+  background:var(--card);border:1px solid var(--border);
+  transition:border-color .4s,box-shadow .4s;min-height:0;
+}
 
-    /* ── section cards ───────────────────────────────────────── */
-    .section-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 12px;
-    }
-    .section-card h3 {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 8px;
-    }
-    .section-card p, .section-card pre {
-      font-size: 13px;
-      color: var(--text);
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
+/* watermark number */
+.card::before{
+  content:attr(data-num);
+  position:absolute;bottom:68px;right:14px;
+  font-size:90px;font-weight:900;letter-spacing:-5px;
+  color:rgba(255,255,255,.035);line-height:1;pointer-events:none;
+  font-family:'Inter',sans-serif;z-index:0;user-select:none;
+}
 
-    /* ── tech badges ─────────────────────────────────────────── */
-    .badge-list { display: flex; flex-wrap: wrap; gap: 6px; }
-    .tech-badge {
-      background: var(--blue-dim);
-      border: 1px solid var(--blue);
-      border-radius: 4px;
-      color: var(--blue);
-      font-size: 11px;
-      font-weight: 600;
-      padding: 2px 8px;
-    }
+/* colored top accent line */
+.card::after{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  transition:box-shadow .4s;
+}
+#card1::after{background:var(--a1)}
+#card2::after{background:var(--a2)}
+#card3::after{background:var(--a3)}
 
-    /* ── folder tree ─────────────────────────────────────────── */
-    .tree {
-      font-family: "SF Mono", "Fira Code", monospace;
-      font-size: 12px;
-      color: var(--muted);
-      line-height: 1.8;
-      max-height: 160px;
-      overflow-y: auto;
-    }
-    .tree .tree-entry { display: block; }
-    .tree .tree-entry.folder { color: var(--blue); }
-    .tree .tree-entry.file   { color: var(--text); }
+/* active glow */
+#card1.active{box-shadow:0 -2px 30px var(--a1g),0 8px 32px rgba(0,0,0,.3)}
+#card2.active{box-shadow:0 -2px 30px var(--a2g),0 8px 32px rgba(0,0,0,.3)}
+#card3.active{box-shadow:0 -2px 30px var(--a3g),0 8px 32px rgba(0,0,0,.3)}
 
-    /* ── LangGraph node graph (simple SVG) ───────────────────── */
-    .node-graph {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      min-height: 120px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--muted);
-      font-size: 12px;
-      padding: 12px;
-    }
-    .iteration-counter {
-      text-align: center;
-      font-family: "SF Mono", monospace;
-      font-size: 12px;
-      color: var(--green);
-    }
+#card1.active::after{box-shadow:0 0 20px var(--a1),0 0 60px var(--a1g)}
+#card2.active::after{box-shadow:0 0 20px var(--a2),0 0 60px var(--a2g)}
+#card3.active::after{box-shadow:0 0 20px var(--a3),0 0 60px var(--a3g)}
 
-    /* ── explainer result sections ───────────────────────────── */
-    .waiting-msg {
-      color: var(--muted);
-      font-style: italic;
-      font-size: 13px;
-      text-align: center;
-      padding: 24px 0;
-    }
+/* ── card header ── */
+.card-hdr{
+  display:flex;align-items:center;gap:9px;padding:13px 16px 11px;
+  border-bottom:1px solid var(--border);flex-shrink:0;position:relative;z-index:1;
+}
+.card-title{font-size:12px;font-weight:600;letter-spacing:.1px;flex:1;color:var(--text)}
 
-    .top5-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
-    .top5-list li {
-      background: var(--orange-dim);
-      border: 1px solid var(--orange);
-      border-radius: 6px;
-      padding: 8px 10px;
-      font-size: 12px;
-    }
-    .top5-list li strong { display: block; color: var(--orange); margin-bottom: 2px; }
+/* status compound indicator */
+.si{position:relative;width:16px;height:16px;flex-shrink:0}
+.si-ring{
+  position:absolute;inset:0;border-radius:50%;
+  border:1.5px solid transparent;transition:border-color .3s;
+}
+.si-dot{
+  position:absolute;inset:4px;border-radius:50%;
+  background:var(--muted);transition:background .3s;
+}
+.si.working .si-dot{background:var(--c)}
+.si.working .si-ring{border-color:var(--c);animation:ring-out 1.4s ease-in-out infinite}
+.si.done .si-dot{background:var(--ok)}
+.si.done .si-ring{border-color:rgba(34,211,168,.4)}
+.si.error .si-dot{background:var(--err)}
+.si.error .si-ring{border-color:rgba(248,113,113,.4)}
+@keyframes ring-out{
+  0%,100%{transform:scale(1);opacity:.6}
+  60%{transform:scale(1.7);opacity:0}
+}
 
-    /* ── A2A message log (bottom bar) ────────────────────────── */
-    .a2a-bar {
-      background: #0a0d12;
-      border-top: 1px solid var(--border);
-      height: 180px;
-      display: flex;
-      flex-direction: column;
-      flex-shrink: 0;
-    }
-    .a2a-bar-header {
-      padding: 8px 16px;
-      border-bottom: 1px solid var(--border);
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--muted);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      flex-shrink: 0;
-    }
-    .a2a-log {
-      flex: 1;
-      overflow-y: auto;
-      padding: 8px 16px;
-      font-family: "SF Mono", "Fira Code", monospace;
-      font-size: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-    .a2a-log .a2a-entry { color: var(--muted); }
-    .a2a-log .a2a-entry.send { color: #79c0ff; }
-    .a2a-log .a2a-entry.recv { color: #7ee787; }
+/* framework tag */
+.fw-tag{
+  font-size:8px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;
+  padding:3px 7px;border-radius:4px;flex-shrink:0;
+  font-family:'JetBrains Mono',monospace;
+}
+.fw-tag.adk {background:rgba(79,127,255,.12);color:var(--a1);border:1px solid rgba(79,127,255,.2)}
+.fw-tag.lang{background:rgba(0,201,167,.12);color:var(--a2);border:1px solid rgba(0,201,167,.2)}
+.fw-tag.crew{background:rgba(168,85,247,.12);color:var(--a3);border:1px solid rgba(168,85,247,.2)}
 
-    /* ── scrollbar ───────────────────────────────────────────── */
-    ::-webkit-scrollbar { width: 4px; height: 4px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-  </style>
+/* status badge */
+.st-badge{
+  font-size:10px;font-weight:500;padding:2px 9px;
+  border-radius:20px;flex-shrink:0;
+  transition:all .3s;
+}
+.st-badge.idle{background:rgba(255,255,255,.04);color:var(--muted);border:1px solid var(--border)}
+.st-badge.work{background:rgba(255,255,255,.07);color:var(--text);border:1px solid var(--brite)}
+.st-badge.ok  {background:rgba(34,211,168,.08); color:var(--ok); border:1px solid rgba(34,211,168,.2)}
+.st-badge.err {background:rgba(248,113,113,.08);color:var(--err);border:1px solid rgba(248,113,113,.2)}
+
+/* ── card body ── */
+.card-body{
+  flex:1;min-height:0;overflow:hidden;
+  padding:14px 16px;display:flex;flex-direction:column;gap:10px;
+  position:relative;z-index:1;
+}
+
+/* waiting state */
+.idle-ph{
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:center;flex:1;gap:12px;
+}
+.wait-dots{display:flex;gap:6px;align-items:center}
+.wait-dots span{
+  width:5px;height:5px;border-radius:50%;background:var(--muted);
+  animation:dot-wave 1.4s ease-in-out infinite;
+}
+.wait-dots span:nth-child(2){animation-delay:.2s}
+.wait-dots span:nth-child(3){animation-delay:.4s}
+@keyframes dot-wave{0%,60%,100%{transform:translateY(0);opacity:.3}30%{transform:translateY(-5px);opacity:1}}
+.idle-label{font-size:11px;color:var(--muted);letter-spacing:.3px}
+
+/* ── Agent 1 content ── */
+.repo-name{font-size:22px;font-weight:800;letter-spacing:-.6px;line-height:1;word-break:break-word}
+.repo-sub{font-size:11px;color:var(--sub);margin-top:3px;font-family:'JetBrains Mono',monospace}
+.sec-hdr{
+  font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+  color:var(--muted);display:flex;align-items:center;gap:8px;margin-top:2px;
+}
+.sec-hdr::after{content:'';flex:1;height:1px;background:var(--border)}
+.arch-text{
+  font-size:11px;color:rgba(255,255,255,.45);line-height:1.7;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;
+}
+.tech-row{display:flex;flex-wrap:wrap;gap:4px;margin-top:auto}
+.tech-pill{
+  font-size:10px;font-weight:500;padding:3px 9px;border-radius:20px;
+  background:rgba(79,127,255,.1);color:var(--a1);
+  border:1px solid rgba(79,127,255,.18);
+  font-family:'JetBrains Mono',monospace;
+  animation:pill-in .25s ease both;
+}
+@keyframes pill-in{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}
+.tree-wrap{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:1px}
+.tree-row{
+  font-size:10px;font-family:'JetBrains Mono',monospace;
+  color:rgba(255,255,255,.35);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  padding:1px 0;animation:row-in .2s ease both;
+}
+.tree-row.dir{color:rgba(79,127,255,.7)}
+@keyframes row-in{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:translateX(0)}}
+
+/* ── Agent 2 content ── */
+.loop-center{
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:center;flex:1;gap:12px;
+}
+.ring-wrap{position:relative;width:100px;height:100px}
+.ring-svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring-track{fill:none;stroke:rgba(255,255,255,.05);stroke-width:5}
+.ring-fill{
+  fill:none;stroke:var(--a2);stroke-width:5;stroke-linecap:round;
+  stroke-dasharray:251;stroke-dashoffset:251;
+  transition:stroke-dashoffset .6s ease;
+  filter:drop-shadow(0 0 5px var(--a2));
+}
+.ring-inner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring-big{font-size:26px;font-weight:800;color:var(--a2);letter-spacing:-1px;line-height:1}
+.ring-lbl{font-size:8px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-top:2px}
+.cur-file{
+  font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--a2);
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  opacity:0;transition:opacity .3s;text-align:center;
+}
+.cur-file.show{opacity:1}
+.stat2{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%}
+.sbox{
+  background:rgba(0,201,167,.05);border:1px solid rgba(0,201,167,.1);
+  border-radius:10px;padding:8px 10px;text-align:center;
+}
+.sbox-val{font-size:22px;font-weight:800;color:var(--a2);letter-spacing:-.5px;line-height:1}
+.sbox-lbl{font-size:8px;color:var(--muted);margin-top:3px;letter-spacing:.5px;text-transform:uppercase}
+
+/* ── Agent 3 content ── */
+.res-stack{display:flex;flex-direction:column;gap:8px;flex:1;min-height:0;overflow:hidden}
+.res-blk{
+  background:rgba(168,85,247,.05);border:1px solid rgba(168,85,247,.1);
+  border-radius:10px;padding:10px 12px;flex-shrink:0;
+}
+.res-blk.grow{flex:1;overflow:auto}
+.res-blk.grow::-webkit-scrollbar{width:3px}
+.res-blk.grow::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:99px}
+.res-lbl{font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--a3);margin-bottom:6px}
+.res-text{font-size:11px;color:rgba(255,255,255,.55);line-height:1.7;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.f5-list{display:flex;flex-direction:column;gap:6px}
+.f5-row{display:flex;gap:8px;align-items:flex-start}
+.f5-n{font-size:9px;font-weight:700;color:var(--a3);flex-shrink:0;font-family:'JetBrains Mono',monospace;margin-top:1px}
+.f5-file{font-size:10px;font-family:'JetBrains Mono',monospace;color:rgba(255,255,255,.75);word-break:break-all}
+.f5-why{font-size:10px;color:var(--muted);line-height:1.4;margin-top:1px}
+
+/* ── log strip ── */
+.card-log{
+  flex-shrink:0;height:72px;overflow:hidden;
+  background:rgba(0,0,0,.25);
+  border-top:1px solid var(--border);
+  position:relative;padding:6px 14px;
+  z-index:1;
+}
+.card-log::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:12px;
+  background:linear-gradient(to bottom,rgba(0,0,0,.25),transparent);
+  pointer-events:none;z-index:1;
+}
+.log-inner{display:flex;flex-direction:column;gap:1px;max-height:100%;overflow:hidden}
+.log-line{
+  font-size:10px;font-family:'JetBrains Mono',monospace;
+  color:rgba(255,255,255,.28);line-height:1.6;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  animation:log-in .18s ease;
+}
+.log-line.hi{color:rgba(255,255,255,.52)}
+@keyframes log-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+
+/* ══════════════════════════ FOOTER ══════════════════════════ */
+footer{
+  display:flex;align-items:center;gap:12px;padding:0 18px;
+  background:rgba(4,7,14,.96);border-top:1px solid var(--border);
+  overflow:hidden;position:relative;z-index:1;
+}
+.a2a-lbl{
+  font-size:8px;font-weight:700;letter-spacing:1.8px;text-transform:uppercase;
+  color:var(--muted);font-family:'JetBrains Mono',monospace;flex-shrink:0;
+}
+.fd{width:1px;height:18px;background:var(--border);flex-shrink:0}
+.a2a-tick{flex:1;display:flex;gap:7px;overflow:hidden;align-items:center}
+.a2a-chip{
+  flex-shrink:0;padding:3px 10px;border-radius:20px;
+  font-size:9px;font-family:'JetBrains Mono',monospace;font-weight:500;
+  animation:chip-in .25s ease;white-space:nowrap;
+}
+.a2a-chip.out{background:rgba(79,127,255,.1);border:1px solid rgba(79,127,255,.2);color:var(--a1)}
+.a2a-chip.in {background:rgba(0,201,167,.1);border:1px solid rgba(0,201,167,.2);color:var(--a2)}
+@keyframes chip-in{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
+.a2a-empty{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace}
+
+/* scroll */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.07);border-radius:99px}
+</style>
 </head>
 <body>
+<div id="app">
 
-<!-- ─── TOP INPUT BAR ───────────────────────────────────────── -->
-<div class="topbar">
-  <div>
-    <h1>Codebase <span>Explainer</span></h1>
-    <div style="font-size:11px;color:var(--muted)">Multi-agent · ADK · LangGraph · CrewAI · A2A</div>
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-mark">◈</div>
+    <div>
+      <div class="logo-name">Codebase Explainer</div>
+      <div class="logo-fw">ADK · LangGraph · CrewAI · A2A</div>
+    </div>
   </div>
-  <div class="input-group">
-    <input id="repoUrl" type="text"
-      placeholder="Paste a public GitHub repo URL…"
-      value="https://github.com/fastapi/fastapi" />
-    <button id="startBtn" onclick="startExplain()">Explain This Codebase</button>
+  <div class="hd"></div>
+  <form class="url-form" id="urlForm">
+    <input id="urlIn" class="url-input" type="url"
+           placeholder="https://github.com/owner/repo" required/>
+    <button type="submit" class="run-btn" id="runBtn">
+      Analyze
+      <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M2 6h8M6 2l4 4-4 4"/>
+      </svg>
+    </button>
+  </form>
+</header>
+
+<!-- MAIN -->
+<main>
+
+  <!-- CARD 1 -->
+  <div class="card" id="card1" data-num="01">
+    <div class="card-hdr">
+      <div class="si" id="si1" style="--c:var(--a1)"><div class="si-ring"></div><div class="si-dot"></div></div>
+      <span class="card-title">Repo Mapper</span>
+      <span class="fw-tag adk">ADK</span>
+      <span class="st-badge idle" id="b1">Idle</span>
+    </div>
+    <div class="card-body">
+      <div class="idle-ph" id="idle1">
+        <div class="wait-dots"><span></span><span></span><span></span></div>
+        <div class="idle-label">Awaiting repo URL</div>
+      </div>
+      <div id="c1" style="display:none;flex-direction:column;gap:9px;flex:1;min-height:0">
+        <div class="repo-name" id="rName">—</div>
+        <div class="repo-sub" id="rSub"></div>
+        <div class="sec-hdr">Architecture</div>
+        <div class="arch-text" id="archText"></div>
+        <div class="tech-row" id="techRow"></div>
+        <div class="sec-hdr">File tree</div>
+        <div class="tree-wrap" id="treeWrap"></div>
+      </div>
+    </div>
+    <div class="card-log"><div class="log-inner" id="log1"></div></div>
   </div>
+
+  <!-- CARD 2 -->
+  <div class="card" id="card2" data-num="02">
+    <div class="card-hdr">
+      <div class="si" id="si2" style="--c:var(--a2)"><div class="si-ring"></div><div class="si-dot"></div></div>
+      <span class="card-title">Code Reader</span>
+      <span class="fw-tag lang">LangGraph</span>
+      <span class="st-badge idle" id="b2">Idle</span>
+    </div>
+    <div class="card-body">
+      <div class="idle-ph" id="idle2">
+        <div class="wait-dots"><span></span><span></span><span></span></div>
+        <div class="idle-label">Waiting for Mapper</div>
+      </div>
+      <div id="c2" style="display:none;flex-direction:column;gap:10px;flex:1;min-height:0">
+        <div class="loop-center">
+          <div class="ring-wrap">
+            <svg class="ring-svg" viewBox="0 0 100 100">
+              <circle class="ring-track" cx="50" cy="50" r="40"/>
+              <circle class="ring-fill" id="ringFill" cx="50" cy="50" r="40"/>
+            </svg>
+            <div class="ring-inner">
+              <div class="ring-big" id="iterN">0</div>
+              <div class="ring-lbl">loops</div>
+            </div>
+          </div>
+          <div class="cur-file" id="curFile">—</div>
+          <div class="stat2">
+            <div class="sbox"><div class="sbox-val" id="filesN">0</div><div class="sbox-lbl">Files Read</div></div>
+            <div class="sbox"><div class="sbox-val" id="nodeN" style="font-size:13px">—</div><div class="sbox-lbl">Graph Node</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-log"><div class="log-inner" id="log2"></div></div>
+  </div>
+
+  <!-- CARD 3 -->
+  <div class="card" id="card3" data-num="03">
+    <div class="card-hdr">
+      <div class="si" id="si3" style="--c:var(--a3)"><div class="si-ring"></div><div class="si-dot"></div></div>
+      <span class="card-title">Onboarding Writer</span>
+      <span class="fw-tag crew">CrewAI</span>
+      <span class="st-badge idle" id="b3">Idle</span>
+    </div>
+    <div class="card-body">
+      <div class="idle-ph" id="idle3">
+        <div class="wait-dots"><span></span><span></span><span></span></div>
+        <div class="idle-label">Waiting for Reader</div>
+      </div>
+      <div id="c3" style="display:none;flex-direction:column;gap:8px;flex:1;min-height:0">
+        <div class="res-stack">
+          <div class="res-blk" id="gBlock" style="display:none">
+            <div class="res-lbl">Developer Guide</div>
+            <div class="res-text" id="gText"></div>
+          </div>
+          <div class="res-blk" id="fBlock" style="display:none">
+            <div class="res-lbl">Data Flow</div>
+            <div class="res-text" id="fText"></div>
+          </div>
+          <div class="res-blk grow" id="t5Block" style="display:none">
+            <div class="res-lbl">Top 5 Files</div>
+            <div class="f5-list" id="t5List"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-log"><div class="log-inner" id="log3"></div></div>
+  </div>
+
+</main>
+
+<!-- FOOTER -->
+<footer>
+  <div class="a2a-lbl">A2A Protocol</div>
+  <div class="fd"></div>
+  <div class="a2a-tick" id="a2aTick">
+    <span class="a2a-empty">Agent messages will appear here</span>
+  </div>
+</footer>
+
 </div>
-
-<!-- ─── THREE AGENT COLUMNS ─────────────────────────────────── -->
-<div class="agents">
-
-  <!-- AGENT 1 -->
-  <div class="agent-col col-blue">
-    <div class="col-header">
-      <div>
-        <div class="title">🗺️ Agent 1: Mapper</div>
-        <div class="subtitle">Google ADK · Gemini Flash</div>
-      </div>
-      <span class="status-badge idle" id="status1">Idle</span>
-    </div>
-    <div class="col-body">
-
-      <div class="section-card">
-        <h3>Live Log</h3>
-        <div class="log-feed" id="log1">
-          <div class="log-line">Waiting for URL…</div>
-        </div>
-      </div>
-
-      <div class="section-card">
-        <h3>Repo Structure</h3>
-        <div class="tree" id="tree1">
-          <span style="color:var(--muted);font-style:italic">Will appear here…</span>
-        </div>
-      </div>
-
-      <div class="section-card">
-        <h3>Tech Stack</h3>
-        <div class="badge-list" id="badges1">
-          <span style="color:var(--muted);font-style:italic;font-size:12px">Will appear here…</span>
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- AGENT 2 -->
-  <div class="agent-col col-green">
-    <div class="col-header">
-      <div>
-        <div class="title">🔍 Agent 2: Code Reader</div>
-        <div class="subtitle">LangGraph · StateGraph Loop</div>
-      </div>
-      <span class="status-badge idle" id="status2">Idle</span>
-    </div>
-    <div class="col-body">
-
-      <div class="section-card">
-        <h3>Live Log</h3>
-        <div class="log-feed" id="log2">
-          <div class="log-line">Waiting for Agent 1…</div>
-        </div>
-      </div>
-
-      <div class="section-card">
-        <h3>File Connection Graph</h3>
-        <div class="node-graph" id="graph2">
-          Nodes will appear as files are read…
-        </div>
-      </div>
-
-      <div class="section-card">
-        <h3>Loop Progress</h3>
-        <div class="iteration-counter" id="iter2">— / 15</div>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- AGENT 3 -->
-  <div class="agent-col col-orange">
-    <div class="col-header">
-      <div>
-        <div class="title">✍️ Agent 3: Explainer</div>
-        <div class="subtitle">CrewAI · 3 Sub-Agents</div>
-      </div>
-      <span class="status-badge idle" id="status3">Idle</span>
-    </div>
-    <div class="col-body">
-
-      <div id="waiting3" class="waiting-msg">
-        Waiting for Agents 1 &amp; 2…
-      </div>
-
-      <div id="results3" style="display:none;display:flex;flex-direction:column;gap:10px">
-
-        <div class="section-card" id="card-guide">
-          <h3>📖 New Developer Guide</h3>
-          <p id="guide-text" style="color:var(--muted);font-style:italic">Generating…</p>
-        </div>
-
-        <div class="section-card" id="card-flow">
-          <h3>🔄 How Data Flows</h3>
-          <pre id="flow-text" style="color:var(--muted);font-style:italic">Generating…</pre>
-        </div>
-
-        <div class="section-card" id="card-top5">
-          <h3>⭐ Top 5 Files</h3>
-          <ul class="top5-list" id="top5-list"></ul>
-        </div>
-
-      </div>
-
-    </div>
-  </div>
-
-</div>
-
-<!-- ─── A2A MESSAGE LOG (BOTTOM) ────────────────────────────── -->
-<div class="a2a-bar">
-  <div class="a2a-bar-header">
-    📡 A2A Protocol Messages
-    <span style="margin-left:auto;font-weight:400;font-size:11px" id="a2a-count">0 messages</span>
-  </div>
-  <div class="a2a-log" id="a2aLog">
-    <div class="a2a-entry">Waiting for pipeline to start…</div>
-  </div>
-</div>
-
 <script>
-/* ──────────────────────────────────────────────────────────────
-   Configuration — Agent 1 is the only one the dashboard talks to
-   directly. Change AGENT1_URL after deploying to Cloud Run.
-────────────────────────────────────────────────────────────── */
-const AGENT1_URL = "http://localhost:8001";
+// ↓ Replace this with your own Agent 1 Cloud Run URL after deploying
+const AGENT1_URL = "https://agent1-mapper-YOUR_PROJECT_NUMBER.us-central1.run.app";
 
-let eventSource = null;
-let a2aCount = 0;
+const MAX_LOG = 6, MAX_TREE = 14, MAX_CHIPS = 8;
+let es = null, treeN = 0, chipN = 0;
+const $ = id => document.getElementById(id);
+const agN = a => ({mapper:1,reader:2,explainer:3}[a]||1);
 
-/* ── helpers ───────────────────────────────────────────────── */
-function now() {
-  return new Date().toTimeString().slice(0, 8);
+// ── state ──
+function setCard(n, mode) {
+  const card=$('card'+n), si=$('si'+n), b=$('b'+n);
+  card.classList.toggle('active', mode==='working');
+  si.classList.remove('working','done','error');
+  b.classList.remove('idle','work','ok','err');
+  if(mode==='working'){si.classList.add('working');b.classList.add('work');b.textContent='Working…'}
+  else if(mode==='done')  {si.classList.add('done'); b.classList.add('ok'); b.textContent='Done ✓'}
+  else if(mode==='error') {si.classList.add('error');b.classList.add('err');b.textContent='Error'}
+  else{b.classList.add('idle');b.textContent='Idle'}
 }
-
-function setStatus(n, state) {
-  const el = document.getElementById("status" + n);
-  el.className = "status-badge " + state;
-  el.textContent = state.charAt(0).toUpperCase() + state.slice(1);
+function show(n){$('idle'+n).style.display='none';$('c'+n).style.display='flex'}
+function addLog(n,txt,hi){
+  const el=$('log'+n);
+  while(el.children.length>=MAX_LOG)el.removeChild(el.firstChild);
+  const d=document.createElement('div');
+  d.className='log-line'+(hi?' hi':'');d.textContent=txt;el.appendChild(d);
 }
-
-function addLog(colId, message, active = false) {
-  const feed = document.getElementById("log" + colId);
-  const div = document.createElement("div");
-  div.className = "log-line" + (active ? " active" : "");
-  div.textContent = `[${now()}] ${message}`;
-  feed.appendChild(div);
-  feed.scrollTop = feed.scrollHeight;
+function addChip(txt,dir){
+  const t=$('a2aTick');
+  if(chipN===0)t.innerHTML='';
+  if(chipN>=MAX_CHIPS)t.removeChild(t.firstChild);
+  chipN++;
+  const c=document.createElement('div');
+  c.className='a2a-chip '+(dir==='out'?'out':'in');
+  c.textContent=(dir==='out'?'↑ ':'↓ ')+txt;
+  t.appendChild(c);
 }
-
-function addA2A(direction, message) {
-  const log = document.getElementById("a2aLog");
-  if (a2aCount === 0) log.innerHTML = "";
-  a2aCount++;
-  const div = document.createElement("div");
-  div.className = "a2a-entry " + direction;
-  div.textContent = `[${now()}] ${direction === "send" ? "→" : "←"} ${message}`;
-  log.appendChild(div);
-  log.scrollTop = log.scrollHeight;
-  document.getElementById("a2a-count").textContent = a2aCount + " message" + (a2aCount === 1 ? "" : "s");
+function setRing(v,mx){
+  $('ringFill').style.strokeDashoffset=251*(1-Math.min(v/mx,1));
+  $('iterN').textContent=v;
 }
-
-function addTreeEntry(text, type) {
-  const tree = document.getElementById("tree1");
-  if (tree.querySelector("span[style]")) tree.innerHTML = "";
-  const span = document.createElement("span");
-  span.className = "tree-entry " + type;
-  span.textContent = text;
-  tree.appendChild(span);
-}
-
-function addBadge(tech) {
-  const list = document.getElementById("badges1");
-  if (list.querySelector("span[style]")) list.innerHTML = "";
-  const badge = document.createElement("span");
-  badge.className = "tech-badge";
-  badge.textContent = tech;
-  list.appendChild(badge);
-}
-
-function setIter(current, max) {
-  document.getElementById("iter2").textContent = `Loop ${current} of max ${max}`;
-}
-
-function showResults3() {
-  document.getElementById("waiting3").style.display = "none";
-  document.getElementById("results3").style.display = "flex";
-}
-
-function setGuide(text) {
-  const el = document.getElementById("guide-text");
-  el.style.fontStyle = "normal";
-  el.style.color = "var(--text)";
-  el.textContent = text;
-}
-
-function setFlow(text) {
-  const el = document.getElementById("flow-text");
-  el.style.fontStyle = "normal";
-  el.style.color = "var(--text)";
-  el.textContent = text;
-}
-
-function setTop5(items) {
-  const ul = document.getElementById("top5-list");
-  ul.innerHTML = "";
-  items.forEach(item => {
-    const li = document.createElement("li");
-    li.innerHTML = `<strong>${item.file}</strong>${item.reason}`;
-    ul.appendChild(li);
-  });
-}
-
-/* ── SSE connection to Agent 1 ─────────────────────────────── */
-function connectSSE() {
-  if (eventSource) { eventSource.close(); }
-
-  eventSource = new EventSource(AGENT1_URL + "/events");
-
-  eventSource.onmessage = (e) => {
-    const data = JSON.parse(e.data);
-    handleEvent(data);
-  };
-
-  eventSource.onerror = () => {
-    addLog(1, "SSE connection lost — is Agent 1 running on port 8001?");
-  };
-}
-
-function handleEvent(ev) {
-  switch (ev.type) {
-
-    case "connected":
-      addLog(1, "Connected to Agent 1 event stream", true);
-      break;
-
-    case "log":
-      if (ev.agent === "mapper")   addLog(1, ev.message, true);
-      if (ev.agent === "reader")   addLog(2, ev.message, true);
-      if (ev.agent === "explainer") addLog(2, ev.message, true);
-      break;
-
-    case "status":
-      if (ev.agent === "mapper")   setStatus(1, ev.state);
-      if (ev.agent === "reader")   setStatus(2, ev.state);
-      if (ev.agent === "explainer") setStatus(3, ev.state);
-      break;
-
-    case "tree_entry":
-      addTreeEntry(ev.text, ev.entry_type);
-      break;
-
-    case "tech_badge":
-      addBadge(ev.tech);
-      break;
-
-    case "a2a_send":
-      addA2A("send", ev.message);
-      break;
-
-    case "a2a_recv":
-      addA2A("recv", ev.message);
-      break;
-
-    case "iteration":
-      setIter(ev.current, ev.max);
-      break;
-
-    case "graph_node":
-      updateGraph(ev.files);
-      break;
-
-    case "result_guide":
-      showResults3();
-      setGuide(ev.text);
-      break;
-
-    case "result_flow":
-      showResults3();
-      setFlow(ev.text);
-      break;
-
-    case "result_top5":
-      showResults3();
-      setTop5(ev.items);
-      break;
+function resetAll(){
+  for(let n=1;n<=3;n++){
+    setCard(n,'idle');
+    $('idle'+n).style.display='flex';
+    $('c'+n).style.display='none';
+    $('log'+n).innerHTML='';
   }
+  $('rName').textContent='—';$('rSub').textContent='';
+  $('archText').textContent='';$('techRow').innerHTML='';$('treeWrap').innerHTML='';
+  treeN=0;
+  $('ringFill').style.strokeDashoffset='251';$('iterN').textContent='0';
+  $('filesN').textContent='0';$('nodeN').textContent='—';
+  $('curFile').textContent='—';$('curFile').classList.remove('show');
+  ['gBlock','fBlock','t5Block'].forEach(id=>$(id).style.display='none');
+  $('gText').textContent='';$('fText').textContent='';$('t5List').innerHTML='';
+  chipN=0;$('a2aTick').innerHTML='<span class="a2a-empty">Agent messages will appear here</span>';
 }
 
-/* ── simple file-connection graph (SVG) ────────────────────── */
-function updateGraph(files) {
-  const container = document.getElementById("graph2");
-  if (!files || files.length === 0) return;
+// ── SSE ──
+function connectSSE(){
+  if(es){es.close();es=null}
+  es=new EventSource(AGENT1_URL+'/events');
 
-  const W = container.clientWidth || 300;
-  const H = 120;
-  const r = 20;
-  const count = Math.min(files.length, 8);
-  const cx = W / 2;
-  const cy = H / 2;
-  const radius = Math.min(cx, cy) - r - 4;
+  es.addEventListener('connected',()=>addLog(1,'✓ Live stream connected',true));
 
-  let svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">`;
-
-  // draw edges from center to each node
-  files.slice(0, count).forEach((_, i) => {
-    const angle = (2 * Math.PI * i) / count - Math.PI / 2;
-    const nx = cx + radius * Math.cos(angle);
-    const ny = cy + radius * Math.sin(angle);
-    svg += `<line x1="${cx}" y1="${cy}" x2="${nx}" y2="${ny}" stroke="#30363d" stroke-width="1"/>`;
+  es.addEventListener('status',e=>{
+    const d=JSON.parse(e.data);
+    const n={mapper:1,reader:2,explainer:3}[d.agent]||1;
+    const m={working:'working',done:'done',idle:'idle',error:'error'}[d.state]||'idle';
+    setCard(n,m);
+    if(m==='working')show(n);
   });
 
-  // center node
-  svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#4285F430" stroke="#4285F4" stroke-width="1.5"/>`;
-
-  // file nodes
-  files.slice(0, count).forEach((f, i) => {
-    const angle = (2 * Math.PI * i) / count - Math.PI / 2;
-    const nx = cx + radius * Math.cos(angle);
-    const ny = cy + radius * Math.sin(angle);
-    const label = f.split("/").pop().slice(0, 10);
-    svg += `<circle cx="${nx}" cy="${ny}" r="${r - 4}" fill="#34A85330" stroke="#34A853" stroke-width="1.5"/>`;
-    svg += `<text x="${nx}" y="${ny + 4}" text-anchor="middle" font-size="8" fill="#e6edf3">${label}</text>`;
+  es.addEventListener('log',e=>{
+    const d=JSON.parse(e.data);
+    addLog(agN(d.agent),d.message||'');
   });
 
-  svg += "</svg>";
-  container.innerHTML = svg;
-}
+  es.addEventListener('tree_entry',e=>{
+    if(treeN>=MAX_TREE)return;treeN++;
+    const d=JSON.parse(e.data);
+    const r=document.createElement('div');
+    r.className='tree-row'+(d.entry_type==='folder'?' dir':'');
+    r.textContent=d.text;$('treeWrap').appendChild(r);
+  });
 
-/* ── main action ───────────────────────────────────────────── */
-async function startExplain() {
-  const url = document.getElementById("repoUrl").value.trim();
-  if (!url) { alert("Please enter a GitHub repo URL"); return; }
+  es.addEventListener('tech_badge',e=>{
+    const d=JSON.parse(e.data);
+    const p=document.createElement('span');
+    p.className='tech-pill';p.textContent=d.tech;$('techRow').appendChild(p);
+  });
 
-  // reset UI
-  document.getElementById("log1").innerHTML = "";
-  document.getElementById("log2").innerHTML = "";
-  document.getElementById("tree1").innerHTML = '<span style="color:var(--muted);font-style:italic">Building…</span>';
-  document.getElementById("badges1").innerHTML = '<span style="color:var(--muted);font-style:italic;font-size:12px">Detecting…</span>';
-  document.getElementById("graph2").textContent = "Reading files…";
-  document.getElementById("iter2").textContent = "— / 15";
-  document.getElementById("waiting3").style.display = "block";
-  document.getElementById("results3").style.display = "none";
-  document.getElementById("a2aLog").innerHTML = "";
-  a2aCount = 0;
-  document.getElementById("a2a-count").textContent = "0 messages";
-  [1, 2, 3].forEach(n => setStatus(n, "idle"));
+  es.addEventListener('analysis',e=>{
+    try{const d=JSON.parse(e.data);if(d.architecture_summary)$('archText').textContent=d.architecture_summary}catch(_){}
+  });
 
-  const btn = document.getElementById("startBtn");
-  btn.disabled = true;
-  btn.textContent = "Running…";
+  es.addEventListener('a2a_send',e=>{
+    const d=JSON.parse(e.data);const msg=d.message||'→ Agent 2';
+    addChip(msg,'out');addLog(1,'↑ '+msg,true);
+  });
 
-  setStatus(1, "working");
-  addLog(1, `Starting pipeline for: ${url}`, true);
-  addA2A("send", `Dashboard → Agent 1: map_repository(${url})`);
+  es.addEventListener('a2a_recv',e=>{
+    const d=JSON.parse(e.data);const msg=d.message||'← Agent';
+    const n=msg.includes('3')||msg.includes('explainer')?3:2;
+    addChip(msg,'in');addLog(n,'↓ '+msg,true);
+  });
 
-  try {
-    const res = await fetch(AGENT1_URL + "/a2a", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ repo_url: url, task: "map_repository" }),
+  es.addEventListener('iteration',e=>{
+    const d=JSON.parse(e.data);
+    show(2);
+    setRing(d.current||0,d.max||15);
+    $('filesN').textContent=d.current||0;
+    $('nodeN').textContent=(d.current||0)+'/'+(d.max||15);
+    addLog(2,'LangGraph: '+(d.current||0)+' iterations',true);
+  });
+
+  es.addEventListener('graph_node',e=>{
+    const d=JSON.parse(e.data);
+    const files=d.files||[];
+    $('nodeN').textContent=files.length+' files';
+    if(files.length)addLog(2,'Mapped: '+files.slice(0,2).join(', '),true);
+  });
+
+  es.addEventListener('result_guide',e=>{
+    const d=JSON.parse(e.data);
+    show(3);$('gBlock').style.display='block';
+    $('gText').textContent=(d.text||'').slice(0,450);
+    addLog(3,'✓ Developer guide ready',true);
+  });
+
+  es.addEventListener('result_flow',e=>{
+    const d=JSON.parse(e.data);
+    $('fBlock').style.display='block';
+    $('fText').textContent=(d.text||'').slice(0,300);
+    addLog(3,'✓ Data flow ready',true);
+  });
+
+  es.addEventListener('result_top5',e=>{
+    const d=JSON.parse(e.data);
+    $('t5Block').style.display='block';
+    $('t5List').innerHTML='';
+    (d.items||[]).slice(0,5).forEach((f,i)=>{
+      const row=document.createElement('div');row.className='f5-row';
+      row.innerHTML=`<div class="f5-n">#${i+1}</div><div><div class="f5-file">${f.file||''}</div><div class="f5-why">${f.reason||''}</div></div>`;
+      $('t5List').appendChild(row);
     });
-    const data = await res.json();
-    addLog(1, "Agent 1 responded: " + (data.status || "ok"), true);
-    addA2A("recv", `Agent 1 → Dashboard: ${data.status}`);
-  } catch (err) {
-    addLog(1, "Error: " + err.message);
-    addA2A("recv", "Error — is Agent 1 running? Try: python main.py in agent1-mapper/");
-  }
+    addLog(3,'✓ Top 5 files ready',true);
+  });
 
-  btn.disabled = false;
-  btn.textContent = "Explain This Codebase";
+  es.addEventListener('pipeline_complete',()=>{
+    setCard(1,'done');setCard(2,'done');setCard(3,'done');
+    addLog(1,'✓ Pipeline complete',true);
+    addLog(2,'✓ Analysis complete',true);
+    addLog(3,'✓ Onboarding kit ready',true);
+    $('runBtn').disabled=false;
+    $('runBtn').innerHTML='Analyze <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M2 6h8M6 2l4 4-4 4"/></svg>';
+  });
+
+  es.onerror=()=>{addLog(1,'⚠ Reconnecting…');setTimeout(connectSSE,3000)};
 }
 
-/* ── on load: connect SSE ──────────────────────────────────── */
-window.addEventListener("load", () => {
+// ── form ──
+$('urlForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const url=$('urlIn').value.trim();if(!url)return;
+  resetAll();
+  $('runBtn').disabled=true;
+  $('runBtn').innerHTML='⏳ Running…';
+  setCard(1,'working');show(1);
+  try{
+    const pts=new URL(url).pathname.split('/').filter(Boolean);
+    if(pts.length>=2){$('rName').textContent=pts[1];$('rSub').textContent=pts[0]+'/'+pts[1]}
+  }catch(_){}
   connectSSE();
+  try{
+    const r=await fetch(AGENT1_URL+'/a2a',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({repo_url:url})
+    });
+    if(!r.ok){
+      const t=await r.text();
+      addLog(1,'✗ HTTP '+r.status+': '+t.slice(0,80),true);
+      setCard(1,'error');$('runBtn').disabled=false;
+      $('runBtn').innerHTML='Analyze <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M2 6h8M6 2l4 4-4 4"/></svg>';
+    }
+  }catch(err){
+    addLog(1,'✗ '+err.message,true);setCard(1,'error');
+    $('runBtn').disabled=false;
+    $('runBtn').innerHTML='Analyze <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M2 6h8M6 2l4 4-4 4"/></svg>';
+  }
 });
+
+connectSSE();
 </script>
 </body>
 </html>

@@ -48,7 +48,7 @@ def parse_github_url(url: str) -> tuple[str, str]:
 
 
 async def get_repo_metadata(owner: str, repo: str) -> dict:
-    async with httpx.AsyncClient(timeout=15) as client:
+    async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
         r = await client.get(f"{GITHUB_API}/repos/{owner}/{repo}", headers=_headers())
         r.raise_for_status()
         d = r.json()
@@ -64,7 +64,7 @@ async def get_repo_metadata(owner: str, repo: str) -> dict:
 
 async def get_file_tree(owner: str, repo: str, branch: str = "HEAD") -> list[dict]:
     """Returns the full recursive file tree from GitHub."""
-    async with httpx.AsyncClient(timeout=30) as client:
+    async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
         r = await client.get(
             f"{GITHUB_API}/repos/{owner}/{repo}/git/trees/{branch}",
             params={"recursive": "1"},
@@ -76,7 +76,7 @@ async def get_file_tree(owner: str, repo: str, branch: str = "HEAD") -> list[dic
 
 async def get_readme(owner: str, repo: str) -> str:
     """Returns the decoded README text (first 3000 chars)."""
-    async with httpx.AsyncClient(timeout=15) as client:
+    async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
         try:
             r = await client.get(
                 f"{GITHUB_API}/repos/{owner}/{repo}/readme",
@@ -91,7 +91,7 @@ async def get_readme(owner: str, repo: str) -> str:
 
 async def get_file_content(owner: str, repo: str, path: str) -> str:
     """Returns the decoded content of a single file (first 2000 chars)."""
-    async with httpx.AsyncClient(timeout=15) as client:
+    async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
         try:
             r = await client.get(
                 f"{GITHUB_API}/repos/{owner}/{repo}/contents/{path}",
