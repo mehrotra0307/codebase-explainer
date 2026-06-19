@@ -1,16 +1,15 @@
 """
 Agent 2: The Code Reader (LangGraph)
-Skeleton server — health, AgentCard, placeholder A2A endpoint.
-Real LangGraph StateGraph loop is added in Phase 3.
+FastAPI server that wraps the LangGraph StateGraph.
+Receives the repo map from Agent 1, runs the graph, returns code analysis.
 """
-
-import json
-from datetime import datetime
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
+
+from graph import reader_graph
 
 app = FastAPI(title="Agent 2: Code Reader")
 
@@ -25,19 +24,16 @@ AGENT_CARD = {
     "name": "Code Reader",
     "description": (
         "Receives a repo map from Agent 1, reads actual source files from GitHub "
-        "using a LangGraph StateGraph loop, builds a file-connection graph, and "
-        "returns a code analysis JSON."
+        "using a LangGraph StateGraph loop (up to 15 iterations), builds a "
+        "file-connection graph, and returns a structured code analysis JSON."
     ),
-    "version": "0.1.0",
+    "version": "0.2.0",
     "framework": "LangGraph",
     "skills": [
         {
             "id": "read_code",
             "name": "Read Code",
-            "description": (
-                "Iteratively reads source files and maps their connections "
-                "(up to 15 iterations)."
-            ),
+            "description": "Iteratively reads source files and maps their connections.",
             "input_modes": ["application/json"],
             "output_modes": ["application/json"],
         }
@@ -48,13 +44,9 @@ AGENT_CARD = {
 }
 
 
-def _now() -> str:
-    return datetime.utcnow().strftime("%H:%M:%S")
-
-
 @app.get("/health")
 async def health():
-    return {"status": "ok", "agent": "reader", "phase": "skeleton"}
+    return {"status": "ok", "agent": "reader", "phase": "3"}
 
 
 @app.get("/.well-known/agent.json")
@@ -65,23 +57,40 @@ async def agent_card():
 @app.post("/a2a")
 async def a2a_endpoint(request: Request):
     """
-    A2A entry point — receives repo map from Agent 1.
-    Phase 1: echoes the request back as a placeholder.
-    Phase 3: this drives the LangGraph StateGraph loop.
+    Receives repo_map JSON from Agent 1.
+    Runs the LangGraph StateGraph and returns the code analysis.
     """
     body = await request.json()
+    repo_map = body.get("repo_map") or body
+
+    if not repo_map or not repo_map.get("owner"):
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Expected a repo_map JSON object with at least an 'owner' field"},
+        )
+
+    # Initial state — the graph fills in the rest via the PRIORITIZE node
+    initial_state = {
+        "repo_map": repo_map,
+        "files_to_read": [],
+        "files_read": {},
+        "connections": {},
+        "iteration_count": 0,
+        "max_iterations": 15,
+        "final_analysis": {},
+    }
+
+    # ainvoke runs the full graph asynchronously and returns the final state
+    final_state = await reader_graph.ainvoke(initial_state)
+
     return {
-        "status": "placeholder",
-        "message": "Agent 2 skeleton — LangGraph loop added in Phase 3",
-        "received_keys": list(body.keys()) if isinstance(body, dict) else str(body)[:80],
-        "mock_analysis": {
-            "files_read": [],
-            "connections": {},
-            "data_flow": "Not yet implemented",
-        },
+        "status": "complete",
+        "code_analysis": final_state["final_analysis"],
+        "files_read_count": len(final_state["files_read"]),
+        "iterations_used": final_state["iteration_count"],
     }
 
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8002)
+    uvicorn.run(app, host="0.0.0.0", port=8002, reload=False)
