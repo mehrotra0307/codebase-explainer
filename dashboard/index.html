@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Codebase Explainer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #0d1117;
+      --surface:    #161b22;
+      --border:     #30363d;
+      --text:       #e6edf3;
+      --muted:      #7d8590;
+      --blue:       #4285F4;
+      --green:      #34A853;
+      --orange:     #EA4335;
+      --blue-dim:   rgba(66,133,244,0.12);
+      --green-dim:  rgba(52,168,83,0.12);
+      --orange-dim: rgba(234,67,53,0.12);
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── top bar ─────────────────────────────────────────────── */
+    .topbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .topbar h1 { font-size: 18px; font-weight: 600; white-space: nowrap; }
+    .topbar h1 span { color: var(--blue); }
+
+    .input-group { display: flex; gap: 8px; flex: 1; min-width: 320px; }
+    .input-group input {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 8px 12px;
+      font-size: 14px;
+      outline: none;
+    }
+    .input-group input:focus { border-color: var(--blue); }
+    .input-group button {
+      background: var(--blue);
+      border: none;
+      border-radius: 6px;
+      color: #fff;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 8px 20px;
+      white-space: nowrap;
+    }
+    .input-group button:hover { opacity: 0.88; }
+    .input-group button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* ── three-column area ───────────────────────────────────── */
+    .agents {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--border);
+      flex: 1;
+      min-height: 0;
+    }
+
+    .agent-col {
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .col-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .col-header .title { font-weight: 600; font-size: 13px; }
+    .col-header .subtitle { font-size: 11px; color: var(--muted); }
+
+    .status-badge {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      text-transform: uppercase;
+    }
+    .status-badge.idle    { background: rgba(125,133,144,0.2); color: var(--muted); }
+    .status-badge.working { background: rgba(66,133,244,0.2);  color: var(--blue); }
+    .status-badge.done    { background: rgba(52,168,83,0.2);   color: var(--green); }
+
+    /* accent colours per column */
+    .col-blue  .col-header { border-left: 3px solid var(--blue); }
+    .col-green .col-header { border-left: 3px solid var(--green); }
+    .col-orange .col-header { border-left: 3px solid var(--orange); }
+
+    .col-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* ── log feeds ───────────────────────────────────────────── */
+    .log-feed {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: 12px;
+      max-height: 180px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .log-feed .log-line { color: var(--muted); }
+    .log-feed .log-line.active { color: var(--text); }
+
+    /* ── section cards ───────────────────────────────────────── */
+    .section-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+    }
+    .section-card h3 {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+    .section-card p, .section-card pre {
+      font-size: 13px;
+      color: var(--text);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* ── tech badges ─────────────────────────────────────────── */
+    .badge-list { display: flex; flex-wrap: wrap; gap: 6px; }
+    .tech-badge {
+      background: var(--blue-dim);
+      border: 1px solid var(--blue);
+      border-radius: 4px;
+      color: var(--blue);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+    }
+
+    /* ── folder tree ─────────────────────────────────────────── */
+    .tree {
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.8;
+      max-height: 160px;
+      overflow-y: auto;
+    }
+    .tree .tree-entry { display: block; }
+    .tree .tree-entry.folder { color: var(--blue); }
+    .tree .tree-entry.file   { color: var(--text); }
+
+    /* ── LangGraph node graph (simple SVG) ───────────────────── */
+    .node-graph {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      min-height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 12px;
+      padding: 12px;
+    }
+    .iteration-counter {
+      text-align: center;
+      font-family: "SF Mono", monospace;
+      font-size: 12px;
+      color: var(--green);
+    }
+
+    /* ── explainer result sections ───────────────────────────── */
+    .waiting-msg {
+      color: var(--muted);
+      font-style: italic;
+      font-size: 13px;
+      text-align: center;
+      padding: 24px 0;
+    }
+
+    .top5-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+    .top5-list li {
+      background: var(--orange-dim);
+      border: 1px solid var(--orange);
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 12px;
+    }
+    .top5-list li strong { display: block; color: var(--orange); margin-bottom: 2px; }
+
+    /* ── A2A message log (bottom bar) ────────────────────────── */
+    .a2a-bar {
+      background: #0a0d12;
+      border-top: 1px solid var(--border);
+      height: 180px;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+    .a2a-bar-header {
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .a2a-log {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 16px;
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .a2a-log .a2a-entry { color: var(--muted); }
+    .a2a-log .a2a-entry.send { color: #79c0ff; }
+    .a2a-log .a2a-entry.recv { color: #7ee787; }
+
+    /* ── scrollbar ───────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  </style>
+</head>
+<body>
+
+<!-- ─── TOP INPUT BAR ───────────────────────────────────────── -->
+<div class="topbar">
+  <div>
+    <h1>Codebase <span>Explainer</span></h1>
+    <div style="font-size:11px;color:var(--muted)">Multi-agent · ADK · LangGraph · CrewAI · A2A</div>
+  </div>
+  <div class="input-group">
+    <input id="repoUrl" type="text"
+      placeholder="Paste a public GitHub repo URL…"
+      value="https://github.com/fastapi/fastapi" />
+    <button id="startBtn" onclick="startExplain()">Explain This Codebase</button>
+  </div>
+</div>
+
+<!-- ─── THREE AGENT COLUMNS ─────────────────────────────────── -->
+<div class="agents">
+
+  <!-- AGENT 1 -->
+  <div class="agent-col col-blue">
+    <div class="col-header">
+      <div>
+        <div class="title">🗺️ Agent 1: Mapper</div>
+        <div class="subtitle">Google ADK · Gemini Flash</div>
+      </div>
+      <span class="status-badge idle" id="status1">Idle</span>
+    </div>
+    <div class="col-body">
+
+      <div class="section-card">
+        <h3>Live Log</h3>
+        <div class="log-feed" id="log1">
+          <div class="log-line">Waiting for URL…</div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <h3>Repo Structure</h3>
+        <div class="tree" id="tree1">
+          <span style="color:var(--muted);font-style:italic">Will appear here…</span>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <h3>Tech Stack</h3>
+        <div class="badge-list" id="badges1">
+          <span style="color:var(--muted);font-style:italic;font-size:12px">Will appear here…</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- AGENT 2 -->
+  <div class="agent-col col-green">
+    <div class="col-header">
+      <div>
+        <div class="title">🔍 Agent 2: Code Reader</div>
+        <div class="subtitle">LangGraph · StateGraph Loop</div>
+      </div>
+      <span class="status-badge idle" id="status2">Idle</span>
+    </div>
+    <div class="col-body">
+
+      <div class="section-card">
+        <h3>Live Log</h3>
+        <div class="log-feed" id="log2">
+          <div class="log-line">Waiting for Agent 1…</div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <h3>File Connection Graph</h3>
+        <div class="node-graph" id="graph2">
+          Nodes will appear as files are read…
+        </div>
+      </div>
+
+      <div class="section-card">
+        <h3>Loop Progress</h3>
+        <div class="iteration-counter" id="iter2">— / 15</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- AGENT 3 -->
+  <div class="agent-col col-orange">
+    <div class="col-header">
+      <div>
+        <div class="title">✍️ Agent 3: Explainer</div>
+        <div class="subtitle">CrewAI · 3 Sub-Agents</div>
+      </div>
+      <span class="status-badge idle" id="status3">Idle</span>
+    </div>
+    <div class="col-body">
+
+      <div id="waiting3" class="waiting-msg">
+        Waiting for Agents 1 &amp; 2…
+      </div>
+
+      <div id="results3" style="display:none;display:flex;flex-direction:column;gap:10px">
+
+        <div class="section-card" id="card-guide">
+          <h3>📖 New Developer Guide</h3>
+          <p id="guide-text" style="color:var(--muted);font-style:italic">Generating…</p>
+        </div>
+
+        <div class="section-card" id="card-flow">
+          <h3>🔄 How Data Flows</h3>
+          <pre id="flow-text" style="color:var(--muted);font-style:italic">Generating…</pre>
+        </div>
+
+        <div class="section-card" id="card-top5">
+          <h3>⭐ Top 5 Files</h3>
+          <ul class="top5-list" id="top5-list"></ul>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- ─── A2A MESSAGE LOG (BOTTOM) ────────────────────────────── -->
+<div class="a2a-bar">
+  <div class="a2a-bar-header">
+    📡 A2A Protocol Messages
+    <span style="margin-left:auto;font-weight:400;font-size:11px" id="a2a-count">0 messages</span>
+  </div>
+  <div class="a2a-log" id="a2aLog">
+    <div class="a2a-entry">Waiting for pipeline to start…</div>
+  </div>
+</div>
+
+<script>
+/* ──────────────────────────────────────────────────────────────
+   Configuration — Agent 1 is the only one the dashboard talks to
+   directly. Change AGENT1_URL after deploying to Cloud Run.
+────────────────────────────────────────────────────────────── */
+const AGENT1_URL = "http://localhost:8001";
+
+let eventSource = null;
+let a2aCount = 0;
+
+/* ── helpers ───────────────────────────────────────────────── */
+function now() {
+  return new Date().toTimeString().slice(0, 8);
+}
+
+function setStatus(n, state) {
+  const el = document.getElementById("status" + n);
+  el.className = "status-badge " + state;
+  el.textContent = state.charAt(0).toUpperCase() + state.slice(1);
+}
+
+function addLog(colId, message, active = false) {
+  const feed = document.getElementById("log" + colId);
+  const div = document.createElement("div");
+  div.className = "log-line" + (active ? " active" : "");
+  div.textContent = `[${now()}] ${message}`;
+  feed.appendChild(div);
+  feed.scrollTop = feed.scrollHeight;
+}
+
+function addA2A(direction, message) {
+  const log = document.getElementById("a2aLog");
+  if (a2aCount === 0) log.innerHTML = "";
+  a2aCount++;
+  const div = document.createElement("div");
+  div.className = "a2a-entry " + direction;
+  div.textContent = `[${now()}] ${direction === "send" ? "→" : "←"} ${message}`;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+  document.getElementById("a2a-count").textContent = a2aCount + " message" + (a2aCount === 1 ? "" : "s");
+}
+
+function addTreeEntry(text, type) {
+  const tree = document.getElementById("tree1");
+  if (tree.querySelector("span[style]")) tree.innerHTML = "";
+  const span = document.createElement("span");
+  span.className = "tree-entry " + type;
+  span.textContent = text;
+  tree.appendChild(span);
+}
+
+function addBadge(tech) {
+  const list = document.getElementById("badges1");
+  if (list.querySelector("span[style]")) list.innerHTML = "";
+  const badge = document.createElement("span");
+  badge.className = "tech-badge";
+  badge.textContent = tech;
+  list.appendChild(badge);
+}
+
+function setIter(current, max) {
+  document.getElementById("iter2").textContent = `Loop ${current} of max ${max}`;
+}
+
+function showResults3() {
+  document.getElementById("waiting3").style.display = "none";
+  document.getElementById("results3").style.display = "flex";
+}
+
+function setGuide(text) {
+  const el = document.getElementById("guide-text");
+  el.style.fontStyle = "normal";
+  el.style.color = "var(--text)";
+  el.textContent = text;
+}
+
+function setFlow(text) {
+  const el = document.getElementById("flow-text");
+  el.style.fontStyle = "normal";
+  el.style.color = "var(--text)";
+  el.textContent = text;
+}
+
+function setTop5(items) {
+  const ul = document.getElementById("top5-list");
+  ul.innerHTML = "";
+  items.forEach(item => {
+    const li = document.createElement("li");
+    li.innerHTML = `<strong>${item.file}</strong>${item.reason}`;
+    ul.appendChild(li);
+  });
+}
+
+/* ── SSE connection to Agent 1 ─────────────────────────────── */
+function connectSSE() {
+  if (eventSource) { eventSource.close(); }
+
+  eventSource = new EventSource(AGENT1_URL + "/events");
+
+  eventSource.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    handleEvent(data);
+  };
+
+  eventSource.onerror = () => {
+    addLog(1, "SSE connection lost — is Agent 1 running on port 8001?");
+  };
+}
+
+function handleEvent(ev) {
+  switch (ev.type) {
+
+    case "connected":
+      addLog(1, "Connected to Agent 1 event stream", true);
+      break;
+
+    case "log":
+      if (ev.agent === "mapper")   addLog(1, ev.message, true);
+      if (ev.agent === "reader")   addLog(2, ev.message, true);
+      if (ev.agent === "explainer") addLog(2, ev.message, true);
+      break;
+
+    case "status":
+      if (ev.agent === "mapper")   setStatus(1, ev.state);
+      if (ev.agent === "reader")   setStatus(2, ev.state);
+      if (ev.agent === "explainer") setStatus(3, ev.state);
+      break;
+
+    case "tree_entry":
+      addTreeEntry(ev.text, ev.entry_type);
+      break;
+
+    case "tech_badge":
+      addBadge(ev.tech);
+      break;
+
+    case "a2a_send":
+      addA2A("send", ev.message);
+      break;
+
+    case "a2a_recv":
+      addA2A("recv", ev.message);
+      break;
+
+    case "iteration":
+      setIter(ev.current, ev.max);
+      break;
+
+    case "graph_node":
+      updateGraph(ev.files);
+      break;
+
+    case "result_guide":
+      showResults3();
+      setGuide(ev.text);
+      break;
+
+    case "result_flow":
+      showResults3();
+      setFlow(ev.text);
+      break;
+
+    case "result_top5":
+      showResults3();
+      setTop5(ev.items);
+      break;
+  }
+}
+
+/* ── simple file-connection graph (SVG) ────────────────────── */
+function updateGraph(files) {
+  const container = document.getElementById("graph2");
+  if (!files || files.length === 0) return;
+
+  const W = container.clientWidth || 300;
+  const H = 120;
+  const r = 20;
+  const count = Math.min(files.length, 8);
+  const cx = W / 2;
+  const cy = H / 2;
+  const radius = Math.min(cx, cy) - r - 4;
+
+  let svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">`;
+
+  // draw edges from center to each node
+  files.slice(0, count).forEach((_, i) => {
+    const angle = (2 * Math.PI * i) / count - Math.PI / 2;
+    const nx = cx + radius * Math.cos(angle);
+    const ny = cy + radius * Math.sin(angle);
+    svg += `<line x1="${cx}" y1="${cy}" x2="${nx}" y2="${ny}" stroke="#30363d" stroke-width="1"/>`;
+  });
+
+  // center node
+  svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#4285F430" stroke="#4285F4" stroke-width="1.5"/>`;
+
+  // file nodes
+  files.slice(0, count).forEach((f, i) => {
+    const angle = (2 * Math.PI * i) / count - Math.PI / 2;
+    const nx = cx + radius * Math.cos(angle);
+    const ny = cy + radius * Math.sin(angle);
+    const label = f.split("/").pop().slice(0, 10);
+    svg += `<circle cx="${nx}" cy="${ny}" r="${r - 4}" fill="#34A85330" stroke="#34A853" stroke-width="1.5"/>`;
+    svg += `<text x="${nx}" y="${ny + 4}" text-anchor="middle" font-size="8" fill="#e6edf3">${label}</text>`;
+  });
+
+  svg += "</svg>";
+  container.innerHTML = svg;
+}
+
+/* ── main action ───────────────────────────────────────────── */
+async function startExplain() {
+  const url = document.getElementById("repoUrl").value.trim();
+  if (!url) { alert("Please enter a GitHub repo URL"); return; }
+
+  // reset UI
+  document.getElementById("log1").innerHTML = "";
+  document.getElementById("log2").innerHTML = "";
+  document.getElementById("tree1").innerHTML = '<span style="color:var(--muted);font-style:italic">Building…</span>';
+  document.getElementById("badges1").innerHTML = '<span style="color:var(--muted);font-style:italic;font-size:12px">Detecting…</span>';
+  document.getElementById("graph2").textContent = "Reading files…";
+  document.getElementById("iter2").textContent = "— / 15";
+  document.getElementById("waiting3").style.display = "block";
+  document.getElementById("results3").style.display = "none";
+  document.getElementById("a2aLog").innerHTML = "";
+  a2aCount = 0;
+  document.getElementById("a2a-count").textContent = "0 messages";
+  [1, 2, 3].forEach(n => setStatus(n, "idle"));
+
+  const btn = document.getElementById("startBtn");
+  btn.disabled = true;
+  btn.textContent = "Running…";
+
+  setStatus(1, "working");
+  addLog(1, `Starting pipeline for: ${url}`, true);
+  addA2A("send", `Dashboard → Agent 1: map_repository(${url})`);
+
+  try {
+    const res = await fetch(AGENT1_URL + "/a2a", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ repo_url: url, task: "map_repository" }),
+    });
+    const data = await res.json();
+    addLog(1, "Agent 1 responded: " + (data.status || "ok"), true);
+    addA2A("recv", `Agent 1 → Dashboard: ${data.status}`);
+  } catch (err) {
+    addLog(1, "Error: " + err.message);
+    addA2A("recv", "Error — is Agent 1 running? Try: python main.py in agent1-mapper/");
+  }
+
+  btn.disabled = false;
+  btn.textContent = "Explain This Codebase";
+}
+
+/* ── on load: connect SSE ──────────────────────────────────── */
+window.addEventListener("load", () => {
+  connectSSE();
+});
+</script>
+</body>
+</html>
