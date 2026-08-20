@@ -9,6 +9,7 @@ Paste a GitHub URL. Three AI agents collaborate over the A2A protocol to map the
 [![Watch the demo](https://img.youtube.com/vi/rAWRIidatlU/maxresdefault.jpg)](https://www.youtube.com/watch?v=rAWRIidatlU)
 
 Full project write-up: [ashishmehrotra.com/projects/codebase-explainer](https://ashishmehrotra.com/projects/codebase-explainer)
+
 Related blog post: [ashishmehrotra.com/blog/a2a-protocol-how-ai-agents-talk-to-each-other](https://ashishmehrotra.com/blog/a2a-protocol-how-ai-agents-talk-to-each-other)
 
 ---
